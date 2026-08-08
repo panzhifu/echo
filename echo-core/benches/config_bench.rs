@@ -121,7 +121,7 @@ fn bench_load_config_from_path(c: &mut Criterion) {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// 基准测试：日志级别转 `log::LevelFilter`。
+/// 基准测试：日志级别转 `tracing_subscriber` 的 `LevelFilter`。
 ///
 /// 覆盖 log 模块的纯逻辑（`init` 有全局副作用，不在此测）。
 fn bench_log_level_conversion(c: &mut Criterion) {
@@ -135,7 +135,7 @@ fn bench_log_level_conversion(c: &mut Criterion) {
     c.bench_function("log_level_to_filter", |b| {
         b.iter(|| {
             for level in black_box(&levels) {
-                black_box(log::LevelFilter::from(*level));
+                black_box(tracing_subscriber::filter::LevelFilter::from(*level));
             }
         });
     });

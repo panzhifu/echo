@@ -18,9 +18,14 @@ use gpui_component::{Root, TitleBar};
 pub fn run() {
     // 加载配置并初始化日志系统
     let config_data = echo_core::config::load_config(None).unwrap_or_default();
-    if let Err(e) = echo_core::log::init(&config_data.log) {
-        eprintln!("Failed to initialize logger: {e}");
-    }
+    // 持有 guard 直到程序结束，否则文件输出可能丢失日志
+    let _log_guard = match echo_core::log::init(&config_data.log) {
+        Ok(guard) => Some(guard),
+        Err(e) => {
+            eprintln!("Failed to initialize logger: {e}");
+            None
+        },
+    };
     log::info!("Echo application starting");
 
     // 注册内置图标资源（SVG），否则 `IconName` 的图标无法渲染。
