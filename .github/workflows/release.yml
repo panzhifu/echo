@@ -46,4 +46,4 @@ jobs:
           name: echo-${{ matrix.target }}
           path: |
             target/${{ matrix.target }}/release/echo*
-            !target/${{ target }}/release/*.d
+            !target/${{ matrix.target }}/release/*.d
