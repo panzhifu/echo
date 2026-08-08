@@ -1,0 +1,31 @@
+# Auto-detect text files, normalize to LF on commit.
+* text=auto
+
+# Source files: enforce LF.
+*.rs     text eol=lf
+*.toml   text eol=lf
+*.md     text eol=lf
+*.sh     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+
+# Git files: enforce LF.
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# Windows batch files: keep CRLF.
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+
+# Binary files: do not modify.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.wasm   binary
+*.db     binary
+*.sqlite binary

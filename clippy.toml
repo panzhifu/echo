@@ -1,0 +1,11 @@
+# Echo workspace clippy configuration
+# See https://doc.rust-lang.org/clippy/cargo-clippy.html#clippy-toml
+
+# Threshold for cognitive complexity lint (default: 25).
+cognitive-complexity-threshold = 25
+
+# Threshold for "too many arguments" lint (default: 7).
+too-many-arguments-threshold = 7
+
+# Threshold for type complexity lint (default: 250).
+type-complexity-threshold = 250

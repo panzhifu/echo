@@ -1,0 +1,32 @@
+# Echo workspace rustfmt configuration
+# Reference: https://github.com/rust-lang/rustfmt/blob/master/Configurations.md
+
+# Maximum width of each line
+max_width = 100
+
+# Number of spaces per tab
+tab_spaces = 4
+
+# Unix line endings (consistent with .gitattributes)
+newline_style = "Unix"
+
+# Use field initialization shorthand (e.g., `Foo { x, y }` instead of `Foo { x: x, y: y }`)
+use_field_init_shorthand = true
+
+# Replace `try!` macro with `?` shorthand
+use_try_shorthand = true
+
+# Put a trailing comma after block-based match arms
+match_block_trailing_comma = true
+
+# Sort imports alphabetically within each group
+reorder_imports = true
+
+# Sort modules alphabetically in `mod` declarations
+reorder_modules = true
+
+# Use tab characters for indentation, spaces for alignment
+hard_tabs = false
+
+# Always print the abi for extern items
+force_explicit_abi = true

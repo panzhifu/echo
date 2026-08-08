@@ -1,0 +1,14 @@
+[package]
+name = "echo-app"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+gpui = { git = "https://github.com/zed-industries/zed" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit"] }
+gpui-component = { git = "https://github.com/longbridge/gpui-component" }
+# 可选：使用内置默认资源
+gpui-component-assets = { git = "https://github.com/longbridge/gpui-component" }
+anyhow = "1.0.104"
+rfd = "0.14"
+echo-core = { path = "../echo-core" }
