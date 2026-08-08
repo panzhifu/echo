@@ -1,0 +1,19 @@
+[package]
+name = "echo-vault"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+notify = "6"
+thiserror.workspace = true
+log = "0.4"
+ignore = "0.4"
+echo-core = { path = "../echo-core" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "watcher_bench"
+path = "benches/watcher_bench.rs"
+harness = false
