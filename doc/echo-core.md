@@ -4,31 +4,43 @@
 
 ### 配置系统
 
-- [x] 定义错误文件 (`error.rs` — `EchoError` / `ConfigError` / `LogError` / 结果类型)
-- [x] 定义配置 schema (`schema.rs` — `ConfigData` / `VaultConfig` / `VaultEntry` / `LogConfig` / `LogLevel`)
-- [x] 定义默认值 (`defaults.rs` — `default_true()`)
-- [x] 分层加载 (`layers.rs` — `Layers` / `merge()` / `load_layers()`，递归合并 TOML)
-- [x] 持久化 (`persist.rs` — `save_config` / `load_config_from_path` / `default_config_path`，跨平台路径)
-- [x] 语义校验 (`validate.rs` — vault 路径非空校验 + 日志文件路径校验)
-- [x] 统一入口 (`mod.rs` — `load_config()` 串联加载→合并→校验)
-- [ ] 运行时可变 + 变更通知（GPUI `Model<Config>` + `cx.notify()`）
-- [ ] 支持 theme/editor/sidebar 配置组
+- [x] 定义错误类型 (`error.rs` - `EchoError` / `ConfigError` / `LogError` + `EchoResult` / `ConfigResult` / `LogResult`)
+- [x] 定义配置 schema (`schema.rs` - `ConfigData` / `VaultConfig` / `VaultEntry` / `LogConfig` / `LogLevel`)
+- [x] `extra` 兜底字段 (`ConfigData.extra: HashMap`，`#[serde(flatten)]`，未知字段向前兼容)
+- [x] 定义默认值 (`defaults.rs` - `default_true()`，配合 `#[serde(default = "...")]`)
+- [x] `VaultConfig::add_recent` (去重 + 移到最前)
+- [x] 分层加载 (`layers.rs` - `Layers` / `merge()` / `load_layers()`，递归合并 TOML)
+- [x] 持久化 (`persist.rs` - `save_config` / `load_config_from_path` / `default_config_path`，跨平台路径)
+- [x] 统一保存入口 (`mod.rs` - `save_config_to_default()`)
+- [x] 语义校验 (`validate.rs` - vault 路径非空 + 日志文件路径非空校验)
+- [x] 统一加载入口 (`mod.rs` - `load_config()` 串联 加载->合并->校验)
+- [ ] 支持 theme / editor / sidebar 配置组（当前可经 `extra` 兜底承载，缺强类型 schema）
+- [ ] 运行时可变 + 变更通知（由 echo-app 层 GPUI `Model<Config>` + `cx.notify()` 实现，echo-core 仅提供数据模型）
 
 ### 日志系统
 
-- [x] 定义日志模块 (`log/mod.rs` — `init()` / `init_from_config()`，基于 `log` + `fern`)
-- [x] 日志配置 (`schema.rs` — `LogLevel` 枚举 / `LogConfig` 结构体)
-- [x] 日志错误类型 (`error.rs` — `LogError` / `LogResult`，可转换为 `EchoError`)
+- [x] 定义日志模块 (`log/mod.rs` - `init()` / `init_from_config()`，基于 `log` + `fern`)
+- [x] 日志配置 (`schema.rs` - `LogLevel` 枚举 / `LogConfig` 结构体)
+- [x] `LogLevel -> log::LevelFilter` 转换 (`impl From<LogLevel>`)
+- [x] 日志错误类型 (`error.rs` - `LogError` / `LogResult`，`impl From<LogError> for EchoError`)
+- [x] 控制台输出 + 文件输出（含父目录自动创建）
 - [ ] 日志文件轮转（按日期/大小分割）
-- [ ] 日志级别热更新（运行时动态调整）
+- [ ] 日志级别热更新（运行时动态调整，无需重启）
+
+### 测试与基准
+
+- [x] 单元测试（config / error / log 模块，24 passed）
+- [x] 配置基准 (`config_bench` - 9 项)：序列化 / 反序列化 / 合并 / 校验 / add_recent / 保存 / 磁盘加载 / 日志级别转换 / 默认路径
 
 ### UI 层 (echo-app)
+
+> 详见 `doc/echo-app.md`（待建）。echo-core 仅提供配置与日志能力，UI 由 echo-app 实现。
 
 - [ ] 自定义标题栏（左侧 `SidebarCollapsible` 图标 + 右侧静态图标）
 - [ ] 底部状态栏置于主面板下方
 - [ ] Welcome 视图（文件夹选择器 + 最近仓库列表）
 - [ ] 仓库管理界面（settings/vault）
-- [ ] 启动流程：无配置 → Welcome，有配置 → 主界面
+- [ ] 启动流程：无配置 -> Welcome，有配置 -> 主界面
 
 ## 当前架构
 
@@ -50,9 +62,9 @@ echo-core/src/
 ## 配置加载流程
 
 ```
-defaults → ~/.config/echo/config.toml → <workspace>/.echo.toml → 运行时覆盖
+defaults -> ~/.config/echo/config.toml -> <workspace>/.echo.toml -> 运行时覆盖
    ↓              ↓                           ↓
-   └─────────────→ merge() ←─────────────────┘
+   └─────────────-> merge() ←─────────────────┘
                       ↓
                   validate()
                       ↓
@@ -79,7 +91,7 @@ log::init(&config.log)?;
 [log]
 level = "info"          # error / warn / info / debug / trace
 console_output = true   # 是否输出到控制台
-file_output = false      # 是否输出到文件
+file_output = false     # 是否输出到文件
 file_path = "echo.log"  # 日志文件路径（可选，默认 echo.log）
 ```
 
@@ -96,6 +108,6 @@ EchoError (核心错误)
 └── InvalidId
 
 LogError (日志错误)
-├── Init (String)  → 转换为 EchoError::ConfigParse
-└── File (std::io::Error) → 转换为 EchoError::Io
+├── Init (String)  -> 转换为 EchoError::ConfigParse
+└── File (std::io::Error) -> 转换为 EchoError::Io
 ```

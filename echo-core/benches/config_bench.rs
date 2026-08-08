@@ -2,7 +2,10 @@
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
-use echo_core::config::{ConfigData, Layers, LogLevel, VaultEntry, save_config, validate};
+use echo_core::config::{
+    ConfigData, Layers, LogLevel, VaultEntry, default_config_path, load_config_from_path,
+    save_config, validate,
+};
 
 /// 创建一个包含多个仓库条目和完整日志配置的测试配置
 fn create_test_config() -> ConfigData {
@@ -99,6 +102,54 @@ fn bench_save_config(c: &mut Criterion) {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// 基准测试：从磁盘加载配置（文件读取 + 反序列化）。
+///
+/// 对比 `deserialize_config`（纯内存解析）可看出文件 IO 开销。
+fn bench_load_config_from_path(c: &mut Criterion) {
+    let config = create_test_config();
+    let dir = std::env::temp_dir().join(format!("echo-bench-load-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("config.toml");
+    save_config(&config, &path).unwrap();
+
+    c.bench_function("load_config_from_path", |b| {
+        b.iter(|| {
+            black_box(load_config_from_path(black_box(&path)).unwrap());
+        });
+    });
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 基准测试：日志级别转 `log::LevelFilter`。
+///
+/// 覆盖 log 模块的纯逻辑（`init` 有全局副作用，不在此测）。
+fn bench_log_level_conversion(c: &mut Criterion) {
+    let levels = [
+        LogLevel::Error,
+        LogLevel::Warn,
+        LogLevel::Info,
+        LogLevel::Debug,
+        LogLevel::Trace,
+    ];
+    c.bench_function("log_level_to_filter", |b| {
+        b.iter(|| {
+            for level in black_box(&levels) {
+                black_box(log::LevelFilter::from(*level));
+            }
+        });
+    });
+}
+
+/// 基准测试：默认配置路径计算（环境变量查询 + 路径拼接）。
+fn bench_default_config_path(c: &mut Criterion) {
+    c.bench_function("default_config_path", |b| {
+        b.iter(|| {
+            black_box(default_config_path());
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_serialize,
@@ -106,6 +157,9 @@ criterion_group!(
     bench_merge,
     bench_validate,
     bench_add_recent,
-    bench_save_config
+    bench_save_config,
+    bench_load_config_from_path,
+    bench_log_level_conversion,
+    bench_default_config_path
 );
 criterion_main!(benches);
