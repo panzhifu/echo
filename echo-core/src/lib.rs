@@ -12,5 +12,5 @@ pub mod error;
 pub mod log;
 
 pub use error::{ConfigError, ConfigResult, EchoError, EchoResult};
-pub use log::LogError;
+pub use error::{LogError, LogResult};
 pub use log::{init as init_log, init_from_config};

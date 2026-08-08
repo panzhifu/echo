@@ -91,6 +91,33 @@ pub enum ConfigError {
 /// Type alias for [`std::result::Result`] with [`ConfigError`] as the error type.
 pub type ConfigResult<T> = Result<T, ConfigError>;
 
+/// Logging-specific error type.
+///
+/// Used for errors that occur during logger initialization and log file operations.
+/// Can be converted into [`EchoError`] via `#[from]` for unified error handling.
+#[derive(Debug, Error)]
+pub enum LogError {
+    /// Logger initialization failed (e.g., already initialized).
+    #[error("failed to initialize logger: {0}")]
+    Init(String),
+
+    /// Failed to create log file or directory.
+    #[error("failed to create log file: {0}")]
+    File(#[from] std::io::Error),
+}
+
+impl From<LogError> for EchoError {
+    fn from(err: LogError) -> Self {
+        match err {
+            LogError::Init(msg) => EchoError::ConfigParse { message: msg },
+            LogError::File(io_err) => EchoError::Io(io_err),
+        }
+    }
+}
+
+/// Type alias for [`std::result::Result`] with [`LogError`] as the error type.
+pub type LogResult<T> = Result<T, LogError>;
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic, clippy::unnecessary_literal_unwrap)]
 mod tests {

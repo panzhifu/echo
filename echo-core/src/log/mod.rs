@@ -16,18 +16,7 @@
 use std::path::Path;
 
 use crate::config::LogConfig;
-
-/// 日志模块错误类型。
-#[derive(Debug, thiserror::Error)]
-pub enum LogError {
-    /// 日志系统初始化失败（例如重复初始化）。
-    #[error("failed to initialize logger: {0}")]
-    Init(String),
-
-    /// 创建日志文件或目录失败。
-    #[error("failed to create log file: {0}")]
-    File(#[from] std::io::Error),
-}
+use crate::error::LogError;
 
 /// 从 [`LogConfig`] 初始化全局日志系统。
 ///
