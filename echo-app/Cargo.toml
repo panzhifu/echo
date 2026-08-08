@@ -13,3 +13,11 @@ anyhow = "1.0.104"
 rfd = "0.14"
 log = "0.4"
 echo-core = { path = "../echo-core" }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "app_bench"
+path = "benches/app_bench.rs"
+harness = false

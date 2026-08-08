@@ -4,17 +4,10 @@ use gpui::{
 };
 use gpui_component::ActiveTheme as _;
 
+use crate::app_logic::AppState;
 use crate::screens::vault_manager::VaultManagerView;
 use crate::screens::workspace::workspace_view;
 use echo_core::config::ConfigData;
-
-/// 应用状态：是否已加载仓库。
-enum AppState {
-    /// 未配置仓库，显示仓库管理界面。
-    NoVault,
-    /// 已配置仓库，显示工作区界面。
-    VaultLoaded,
-}
 
 /// Echo 应用的主结构体。
 ///
@@ -41,13 +34,11 @@ impl EchoApp {
     pub fn new(window: &mut Window, cx: &mut Context<Self>, config_data: ConfigData) -> Self {
         let config = cx.new(|_| config_data);
 
-        let state = if config.read(cx).vault.is_valid() {
-            log::info!("Vault configured: entering workspace");
-            AppState::VaultLoaded
-        } else {
-            log::info!("No vault configured: showing vault manager");
-            AppState::NoVault
-        };
+        let state = AppState::from_vault(&config.read(cx).vault);
+        match state {
+            AppState::VaultLoaded => log::info!("Vault configured: entering workspace"),
+            AppState::NoVault => log::info!("No vault configured: showing vault manager"),
+        }
 
         let vault_manager = if matches!(state, AppState::NoVault) {
             Some(cx.new(|cx| VaultManagerView::new(window, cx, config.clone())))

@@ -6,6 +6,7 @@ use gpui_component::button::Button;
 use gpui_component::{ActiveTheme as _, IconName, v_flex};
 
 use super::VaultManagerView;
+use crate::app_logic::apply_vault_selection;
 
 /// 渲染右侧功能区面板。
 ///
@@ -91,8 +92,7 @@ fn pick_folder(
                     this.update(&mut cx, |this, cx| {
                         // 写入响应式配置，触发应用切换到工作区界面
                         this.config.update(cx, |data, cx| {
-                            data.vault.path = Some(path.clone());
-                            data.vault.add_recent(path);
+                            apply_vault_selection(data, path);
                             cx.notify();
                         });
                         // 持久化到磁盘

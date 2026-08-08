@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 mod app;
+pub mod app_logic;
 mod screens;
 
 use gpui::{AppContext, Bounds, Size, WindowBounds, WindowOptions, px};
