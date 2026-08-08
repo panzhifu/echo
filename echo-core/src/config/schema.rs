@@ -5,20 +5,15 @@ use serde::{Deserialize, Serialize};
 use crate::config::defaults::default_true;
 
 /// 日志级别。
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Error,
     Warn,
+    #[default]
     Info,
     Debug,
     Trace,
-}
-
-impl Default for LogLevel {
-    fn default() -> Self {
-        Self::Info
-    }
 }
 
 impl From<LogLevel> for log::LevelFilter {

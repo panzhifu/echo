@@ -21,6 +21,11 @@ use crate::error::LogError;
 /// 从 [`LogConfig`] 初始化全局日志系统。
 ///
 /// 应在应用启动时调用一次。重复调用会返回错误（`fern` 限制）。
+///
+/// # Errors
+///
+/// 返回 [`LogError::Init`] 当 logger 已初始化或应用失败时。
+/// 返回 [`LogError::File`] 当创建日志文件或目录失败时。
 pub fn init(config: &LogConfig) -> Result<(), LogError> {
     let level_filter: log::LevelFilter = config.level.into();
 
@@ -38,7 +43,7 @@ pub fn init(config: &LogConfig) -> Result<(), LogError> {
                         record.level(),
                         record.target(),
                         message
-                    ))
+                    ));
                 })
                 .chain(std::io::stdout()),
         );
@@ -49,8 +54,7 @@ pub fn init(config: &LogConfig) -> Result<(), LogError> {
         let path = config
             .file_path
             .as_deref()
-            .map(Path::new)
-            .unwrap_or_else(|| Path::new("echo.log"));
+            .map_or_else(|| Path::new("echo.log"), Path::new);
 
         // 确保父目录存在
         if let Some(parent) = path.parent()
@@ -69,7 +73,7 @@ pub fn init(config: &LogConfig) -> Result<(), LogError> {
                         record.level(),
                         record.target(),
                         message
-                    ))
+                    ));
                 })
                 .chain(fern::log_file(path)?),
         );
@@ -81,6 +85,10 @@ pub fn init(config: &LogConfig) -> Result<(), LogError> {
 }
 
 /// 便捷函数：从 [`ConfigData`] 初始化日志系统。
+///
+/// # Errors
+///
+/// 参见 [`init`]。
 pub fn init_from_config(config: &crate::config::ConfigData) -> Result<(), LogError> {
     init(&config.log)
 }

@@ -14,7 +14,14 @@ pub struct Layers {
     pub workspace: Option<ConfigData>,
 }
 
+impl Default for Layers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Layers {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             global: None,

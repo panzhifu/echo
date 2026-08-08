@@ -6,6 +6,10 @@ use crate::config::schema::ConfigData;
 /// 校验内容包括：
 /// - 路径格式（如果设置了 `vault.path`）
 /// - 日志配置（如果启用了文件输出，必须指定有效的文件路径）
+///
+/// # Errors
+///
+/// 返回 [`ConfigError::Validation`] 当校验失败时。
 pub fn validate(config: &ConfigData) -> ConfigResult<()> {
     if let Some(path) = &config.vault.path
         && path.is_empty()
