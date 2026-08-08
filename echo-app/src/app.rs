@@ -36,14 +36,16 @@ pub struct EchoApp {
 impl EchoApp {
     /// 创建一个新的 [`EchoApp`] 实例。
     ///
-    /// 启动时加载配置，判断是否已配置仓库。
-    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let config_data = echo_core::config::load_config(None).unwrap_or_default();
+    /// `config_data` 为已加载的配置数据，避免重复加载。
+    /// 根据仓库配置决定初始界面。
+    pub fn new(window: &mut Window, cx: &mut Context<Self>, config_data: ConfigData) -> Self {
         let config = cx.new(|_| config_data);
 
         let state = if config.read(cx).vault.is_valid() {
+            log::info!("Vault configured: entering workspace");
             AppState::VaultLoaded
         } else {
+            log::info!("No vault configured: showing vault manager");
             AppState::NoVault
         };
 
@@ -56,6 +58,7 @@ impl EchoApp {
         // 订阅配置变化：仓库变为有效时切换到工作区界面
         let subscriptions = vec![cx.observe(&config, |this, _, cx| {
             if matches!(this.state, AppState::NoVault) && this.config.read(cx).vault.is_valid() {
+                log::info!("Vault configured via UI: switching to workspace");
                 this.state = AppState::VaultLoaded;
                 cx.notify();
             }

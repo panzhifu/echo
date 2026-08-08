@@ -15,6 +15,13 @@ use gpui_component::{Root, TitleBar};
 
 /// 应用入口，供 [`main.rs`] 和 [`examples/`] 调用。
 pub fn run() {
+    // 加载配置并初始化日志系统
+    let config_data = echo_core::config::load_config(None).unwrap_or_default();
+    if let Err(e) = echo_core::log::init(&config_data.log) {
+        eprintln!("Failed to initialize logger: {e}");
+    }
+    log::info!("Echo application starting");
+
     // 注册内置图标资源（SVG），否则 `IconName` 的图标无法渲染。
     gpui_platform::application()
         .with_assets(gpui_component_assets::Assets)
@@ -34,12 +41,12 @@ pub fn run() {
             };
 
             let window = cx.open_window(window_options, |window, cx| {
-                let view = cx.new(|cx| app::EchoApp::new(window, cx));
+                let view = cx.new(|cx| app::EchoApp::new(window, cx, config_data.clone()));
                 cx.new(|cx| Root::new(view, window, cx))
             });
 
             if let Err(err) = window {
-                eprintln!("Failed to open window: {err:#}");
+                log::error!("Failed to open window: {err:#}");
             }
         });
 }

@@ -11,4 +11,5 @@ gpui-component = { git = "https://github.com/longbridge/gpui-component" }
 gpui-component-assets = { git = "https://github.com/longbridge/gpui-component" }
 anyhow = "1.0.104"
 rfd = "0.14"
+log = "0.4"
 echo-core = { path = "../echo-core" }
