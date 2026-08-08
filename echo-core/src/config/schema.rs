@@ -4,6 +4,66 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::defaults::default_true;
 
+/// 日志级别。
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl Default for LogLevel {
+    fn default() -> Self {
+        Self::Info
+    }
+}
+
+impl From<LogLevel> for log::LevelFilter {
+    fn from(level: LogLevel) -> Self {
+        match level {
+            LogLevel::Error => log::LevelFilter::Error,
+            LogLevel::Warn => log::LevelFilter::Warn,
+            LogLevel::Info => log::LevelFilter::Info,
+            LogLevel::Debug => log::LevelFilter::Debug,
+            LogLevel::Trace => log::LevelFilter::Trace,
+        }
+    }
+}
+
+/// 日志配置。
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct LogConfig {
+    /// 日志级别。
+    #[serde(default)]
+    pub level: LogLevel,
+
+    /// 是否输出到控制台。
+    #[serde(default = "default_true")]
+    pub console_output: bool,
+
+    /// 是否输出到文件。
+    #[serde(default)]
+    pub file_output: bool,
+
+    /// 日志文件路径（可选，默认为 `echo.log`）。
+    #[serde(default)]
+    pub file_path: Option<String>,
+}
+
+impl Default for LogConfig {
+    fn default() -> Self {
+        Self {
+            level: LogLevel::default(),
+            console_output: true,
+            file_output: false,
+            file_path: None,
+        }
+    }
+}
+
 /// 顶层配置结构。
 ///
 /// 当前只包含仓库配置。未知字段通过 `extra` 兜底，便于后续扩展。
@@ -12,6 +72,9 @@ use crate::config::defaults::default_true;
 pub struct ConfigData {
     #[serde(default)]
     pub vault: VaultConfig,
+
+    #[serde(default)]
+    pub log: LogConfig,
 
     /// 兜底字段：未被上面声明的字段进入这里，保证向前兼容。
     #[serde(flatten)]
