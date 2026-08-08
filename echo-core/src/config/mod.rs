@@ -1,7 +1,5 @@
 use std::path::Path;
 
-use crate::config::validate::validate;
-
 mod defaults;
 mod layers;
 mod persist;
@@ -9,9 +7,10 @@ mod schema;
 mod validate;
 
 pub use crate::error::{ConfigError, ConfigResult};
-pub use layers::load_layers;
+pub use layers::{Layers, load_layers};
 pub use persist::{default_config_path, save_config};
 pub use schema::*;
+pub use validate::validate;
 
 /// 加载完整的配置（所有层合并后）。
 ///
