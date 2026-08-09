@@ -1,0 +1,17 @@
+[package]
+name = "echo-markdown"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+pulldown-cmark = "0.13"
+thiserror.workspace = true
+memchr = "2.7"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "markdown_bench"
+path = "benches/markdown_bench.rs"
+harness = false

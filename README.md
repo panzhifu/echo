@@ -17,6 +17,15 @@ echo/
 │       │   └── validate.rs
 │       ├── error.rs    # 结构化错误类型
 │       └── lib.rs
+├── echo-markdown/        # Markdown 引擎：解析、序列化、WikiLink 后处理
+│   └── src/
+│       ├── block.rs      # 块模型 (BlockKind / Block / CalloutVariant / TableData)
+│       ├── document.rs   # 文档结构 (Document)
+│       ├── inline.rs     # 内联模型 (InlineTextTree / InlineFragment / InlineStyle)
+│       ├── parser.rs     # Markdown 解析器 (parse)
+│       ├── serialize.rs  # 序列化 (to_markdown)
+│       ├── wikilink.rs   # WikiLink 后处理
+│       └── error.rs      # 错误类型
 ├── echo-app/           # 前端 UI：仓库管理、工作区
 │   └── src/
 │       ├── app.rs
@@ -32,6 +41,8 @@ echo/
 ## 功能特性
 
 - **分层配置系统**：默认值 → 全局配置 (`~/.config/echo/config.toml`) → 工作区配置 (`<workspace>/.echo.toml`)
+- **Markdown 引擎**：CommonMark 解析 + Obsidian 扩展（WikiLink / Callout / Mermaid / 标签 / 注释）
+- **文件监控**：跨平台文件夹递归监控 + gitignore 风格忽略模式 + 事件防抖
 - **跨平台**：支持 macOS / Windows / Linux
 - **响应式 UI**：基于 GPUI 框架，配置变更自动切换界面
 - **CI/CD**：GitHub Actions 自动格式检查、Clippy 静态分析、三平台测试与构建
