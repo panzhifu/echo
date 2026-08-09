@@ -9,8 +9,10 @@
 
 pub mod config;
 pub mod error;
+pub mod id;
 pub mod log;
 
 pub use error::{ConfigError, ConfigResult, EchoError, EchoResult};
 pub use error::{LogError, LogResult};
+pub use id::{BlockId, FileId, Id, NodeId, Timestamp, VaultId, now, zero_timestamp};
 pub use log::{LogGuard, init as init_log, init_from_config};
