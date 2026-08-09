@@ -4,6 +4,7 @@
 //! 包括 `*` 通配符、`**` 递归匹配、`/` 路径锚定、`!` 取反等。
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
@@ -11,7 +12,8 @@ use crate::watcher::VaultError;
 
 /// gitignore 风格的文件忽略过滤器。
 ///
-/// 使用 [`ignore`] crate 的 [`Gitignore`] 实现，支持标准 gitignore 模式。
+/// 基于 [`ignore`] crate 的 [`Gitignore`] 实现，支持标准 gitignore 模式。
+/// 内部使用 [`Arc`] 共享 `Gitignore`，使过滤器本身可廉价克隆。
 ///
 /// # 示例
 ///
@@ -27,8 +29,9 @@ use crate::watcher::VaultError;
 /// assert!(filter.is_ignored(Path::new("/home/user/vault/note.tmp")));
 /// assert!(!filter.is_ignored(Path::new("/home/user/vault/note.md")));
 /// ```
+#[derive(Clone)]
 pub struct IgnoreFilter {
-    matcher: Gitignore,
+    matcher: Arc<Gitignore>,
     root: PathBuf,
 }
 
@@ -54,7 +57,7 @@ impl IgnoreFilter {
             .build()
             .map_err(|e| VaultError::Init(e.to_string()))?;
         Ok(Self {
-            matcher,
+            matcher: Arc::new(matcher),
             root: root.to_path_buf(),
         })
     }

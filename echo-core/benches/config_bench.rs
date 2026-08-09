@@ -3,8 +3,8 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use echo_core::config::{
-    ConfigData, Layers, LogLevel, VaultEntry, default_config_path, load_config_from_path,
-    save_config, validate,
+    CachedConfig, ConfigData, Layers, LogLevel, VaultEntry, default_config_path,
+    load_config_from_path, save_config, validate,
 };
 
 /// 创建一个包含多个仓库条目和完整日志配置的测试配置
@@ -150,11 +150,25 @@ fn bench_default_config_path(c: &mut Criterion) {
     });
 }
 
+/// 基准测试：利用 CachedConfig 的序列化缓存
+fn bench_serialize_cached(c: &mut Criterion) {
+    let config = create_test_config();
+    let cached = CachedConfig::new(config);
+    // 预热：首次序列化填充缓存
+    let _ = cached.to_toml();
+    c.bench_function("serialize_cached_hit", |b| {
+        b.iter(|| {
+            black_box(cached.to_toml().unwrap());
+        });
+    });
+}
+
 criterion_group!(
     benches,
     bench_serialize,
     bench_deserialize,
     bench_merge,
+    bench_serialize_cached,
     bench_validate,
     bench_add_recent,
     bench_save_config,

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["echo-app","echo-core","echo-vault"]
+members = ["echo-app", "echo-core", "echo-markdown", "echo-vault"]
 
 [workspace.dependencies]
 thiserror = "2.0.12"

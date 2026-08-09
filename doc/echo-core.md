@@ -124,6 +124,90 @@ width = 240.0
 collapsed = false
 ```
 
+## 公共 API
+
+### 核心函数
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `load_config` | `fn(Option<&Path>) -> ConfigResult<ConfigData>` | 加载完整配置（加载→合并→校验） |
+| `save_config_to_default` | `fn(&ConfigData) -> ConfigResult<()>` | 保存配置到默认路径 |
+| `save_config` | `fn(&ConfigData, &Path) -> ConfigResult<()>` | 配置序列化 + 文件写入 |
+| `load_config_from_path` | `fn(&Path) -> ConfigResult<ConfigData>` | 文件读取 + 配置反序列化 |
+| `default_config_path` | `fn() -> PathBuf` | 获取默认配置文件路径 |
+
+### 配置模型
+
+| 类型 | 说明 |
+|------|------|
+| `ConfigData` | 顶层配置结构（vault / log / theme / editor / sidebar / extra） |
+| `VaultConfig` | 仓库配置（path / auto_index / recent） |
+| `VaultEntry` | 最近使用的仓库条目（path / name / last_opened） |
+| `LogConfig` | 日志配置（level / console_output / file_output / file_path / rotation） |
+| `LogLevel` | 日志级别（Error / Warn / Info / Debug / Trace） |
+| `RotationKind` | 日志轮转策略（Daily / Hourly / Minutely / Never） |
+| `ThemeConfig` | 主题配置（mode / font_family / font_size） |
+| `ThemeMode` | 主题模式（Light / Dark / Auto） |
+| `EditorConfig` | 编辑器配置（tab_size / show_line_numbers） |
+| `SidebarConfig` | 侧边栏配置（width / collapsed） |
+
+### 分层加载
+
+| 类型 | 说明 |
+|------|------|
+| `Layers` | 配置层（global / workspace） |
+| `load_layers` | `fn(Option<&Path>) -> ConfigResult<Layers>` | 加载所有配置层 |
+| `Layers::merge` | `fn(&self) -> ConfigResult<ConfigData>` | 递归合并配置层 |
+
+### 缓存优化
+
+| 类型 | 说明 |
+|------|------|
+| `CachedConfig` | 带缓存的配置包装（inner + cached_toml） |
+| `CachedConfig::to_toml` | `fn(&self) -> ConfigResult<String>` | 返回缓存的 TOML 字符串（若脏则重新序列化） |
+| `CachedConfig::mark_dirty` | `fn(&self)` | 标记缓存为脏 |
+| `CachedConfig::save` | `fn(&self, &Path) -> ConfigResult<()>` | 保存到文件 |
+
+### 校验
+
+| 函数 | 说明 |
+|------|------|
+| `validate` | `fn(&ConfigData) -> ConfigResult<()>` | 语义校验（vault 路径 / 日志路径 / tab_size / font_size） |
+
+### 日志
+
+| 函数 | 说明 |
+|------|------|
+| `log::init` | `fn(&LogConfig) -> LogResult<LogGuard>` | 从配置初始化日志 |
+| `log::init_from_config` | `fn(&ConfigData) -> LogResult<LogGuard>` | 从 ConfigData 初始化日志 |
+| `LogGuard::set_level` | `fn(&self, LogLevel) -> LogResult<()>` | 运行时热更新日志级别 |
+
+### 错误类型
+
+| 类型 | 说明 |
+|------|------|
+| `EchoError` | 核心错误枚举 |
+| `ConfigError` | 配置错误枚举 |
+| `LogError` | 日志错误枚举 |
+| `EchoResult<T>` | 核心结果别名 |
+| `ConfigResult<T>` | 配置结果别名 |
+| `LogResult<T>` | 日志结果别名 |
+
+## 性能基准
+
+| 基准测试 | 耗时 | 说明 |
+|---------|------|------|
+| `serialize_config` | 340.48 µs | TOML 序列化 |
+| `deserialize_config` | 269.56 µs | TOML 反序列化 |
+| `merge_configs` | 10.52 µs | 配置合并 |
+| `serialize_cached_hit` | 146.77 ns | 缓存命中序列化（比 serialize 快 2317x） |
+| `validate_config` | 4.62 ns | 配置校验 |
+| `add_recent` | 27.41 µs | 添加 100 个最近仓库 |
+| `save_config` | 833 µs | 序列化 + 文件写入 |
+| `load_config_from_path` | 321.89 µs | 文件读取 + 反序列化 |
+| `log_level_to_filter` | 1.52 ns | 日志级别转换 |
+| `default_config_path` | 665.57 ns | 默认路径计算 |
+
 ### 错误层级
 
 ```

@@ -8,7 +8,7 @@ mod validate;
 
 pub use crate::error::{ConfigError, ConfigResult};
 pub use layers::{Layers, load_layers};
-pub use persist::{default_config_path, load_config_from_path, save_config};
+pub use persist::{CachedConfig, default_config_path, load_config_from_path, save_config};
 pub use schema::*;
 pub use validate::validate;
 

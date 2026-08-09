@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use serde::Deserialize as _;
+
 use crate::config::persist::load_config_from_path;
 use crate::config::schema::ConfigData;
 use crate::config::{ConfigError, ConfigResult};
@@ -64,12 +66,8 @@ impl Layers {
             merge_toml_value(&mut merged, workspace_value);
         }
 
-        let toml_str = toml::to_string(&merged).map_err(|e| {
-            ConfigError::Echo(crate::EchoError::ConfigParse {
-                message: format!("failed to serialize merged config: {e}"),
-            })
-        })?;
-        toml::from_str(&toml_str).map_err(|e| {
+        // 直接从 toml::Value 反序列化，避免多余的 to_string + from_str 往返
+        ConfigData::deserialize(merged).map_err(|e| {
             ConfigError::Echo(crate::EchoError::ConfigParse {
                 message: format!("failed to deserialize merged config: {e}"),
             })

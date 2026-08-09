@@ -107,6 +107,64 @@ for event in events {
 drop(guard);
 ```
 
+## 公共 API
+
+### 监控器
+
+| 类型 | 说明 |
+|------|------|
+| `VaultWatcher` | 文件监控器（builder 模式） |
+| `VaultWatcher::new` | `fn(&str) -> Self` | 创建单路径监控器 |
+| `VaultWatcher::with_paths` | `fn(Vec<PathBuf>) -> Self` | 创建多路径监控器 |
+| `VaultWatcher::ignore_patterns` | `fn(Vec<String>) -> Self` | 设置忽略模式 |
+| `VaultWatcher::debounce` | `fn(Duration) -> Self` | 设置防抖时间 |
+| `VaultWatcher::watch` | `fn(self) -> VaultResult<(Receiver<VaultEvent>, WatchGuard)>` | 开始监控 |
+
+### 事件类型
+
+| 类型 | 说明 |
+|------|------|
+| `VaultEvent` | 文件事件枚举（Create / Modify / Delete / Rename） |
+| `VaultEvent::path` | `fn(&self) &Path` | 获取事件路径 |
+| `WatchGuard` | 监控守护（调用 stop() 或 drop 停止监控） |
+
+### 忽略过滤
+
+| 类型 | 说明 |
+|------|------|
+| `IgnoreFilter` | gitignore 风格过滤器 |
+| `IgnoreFilter::new` | `fn(&Path, &[String]) -> VaultResult<Self>` | 创建过滤器 |
+| `IgnoreFilter::is_ignored` | `fn(&self, &Path) -> bool` | 检查路径是否被忽略 |
+
+### 缓存优化
+
+| 函数 | 说明 |
+|------|------|
+| `get_or_create_filter` | `fn(PathBuf, Vec<String>) -> Result<IgnoreFilter, VaultError>` | 从缓存获取或创建过滤器 |
+
+### 错误类型
+
+| 类型 | 说明 |
+|------|------|
+| `VaultError` | 监控错误枚举（PathNotFound / Init / Notify） |
+| `VaultResult<T>` | 结果别名 |
+
+## 性能基准
+
+| 基准测试 | 耗时 | 说明 |
+|---------|------|------|
+| `ignore_filter_new_50` | 75.11 µs | 编译 50 个忽略模式 |
+| `ignore_filter_new_3` | 4.42 µs | 编译 3 个忽略模式 |
+| `ignore_filter_cached_hit` | 5.28 µs | 缓存命中（比 new_50 快 14.2x） |
+| `ignore_filter_match_ignored` | 337 ns | 匹配被忽略的路径 |
+| `ignore_filter_match_not_ignored` | 422 ns | 匹配未被忽略的路径 |
+| `ignore_filter_match_nested_dir` | 504 ns | 匹配嵌套目录 |
+| `event_path_create` | 601 ps | 提取 Create 事件路径 |
+| `event_path_rename` | 587 ps | 提取 Rename 事件路径 |
+| `watcher_new_single` | 91.40 ns | 创建单路径监控器 |
+| `watcher_with_paths_10` | 424.17 ns | 创建 10 路径监控器 |
+| `watcher_builder_full` | 898.80 ns | 完整 builder 链式调用 |
+
 ## 错误层级
 
 ```

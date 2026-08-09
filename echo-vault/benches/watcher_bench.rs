@@ -14,6 +14,27 @@ use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 use echo_vault::{IgnoreFilter, VaultEvent, VaultWatcher};
 
+/// 基准测试：忽略过滤器缓存（get_or_create_filter）
+fn bench_ignore_filter_cached(c: &mut Criterion) {
+    echo_vault::filter_cache::clear_cache();
+    let patterns: Vec<String> = (0..50).map(|i| format!("*.ext{i}")).collect();
+
+    // 预热：首次创建填充缓存
+    let _ = echo_vault::filter_cache::get_or_create(PathBuf::from("/"), patterns.clone()).unwrap();
+
+    c.bench_function("ignore_filter_cached_hit", |b| {
+        b.iter(|| {
+            black_box(
+                echo_vault::filter_cache::get_or_create(
+                    black_box(PathBuf::from("/")),
+                    black_box(patterns.clone()),
+                )
+                .unwrap(),
+            );
+        });
+    });
+}
+
 /// 基准测试：事件路径提取
 fn bench_event_path(c: &mut Criterion) {
     let create = VaultEvent::Create {
@@ -138,6 +159,7 @@ fn bench_watcher_builder(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_event_path,
+    bench_ignore_filter_cached,
     bench_ignore_filter_new,
     bench_ignore_filter_match,
     bench_watcher_new,

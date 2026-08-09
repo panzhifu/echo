@@ -42,7 +42,9 @@
 
 mod debounce;
 mod filter;
+pub mod filter_cache;
 mod watcher;
 
 pub use filter::IgnoreFilter;
+pub use filter_cache::get_or_create as get_or_create_filter;
 pub use watcher::{VaultError, VaultEvent, VaultWatcher, WatchGuard};
