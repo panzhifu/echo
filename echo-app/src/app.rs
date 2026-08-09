@@ -6,14 +6,14 @@ use gpui_component::ActiveTheme as _;
 
 use crate::app_logic::AppState;
 use crate::screens::vault_manager::VaultManagerView;
-use crate::screens::workspace::workspace_view;
+use crate::screens::workspace::WorkspaceView;
 use echo_core::config::ConfigData;
 
 /// Echo 应用的主结构体。
 ///
 /// 持有响应式配置实体，启动时根据仓库配置决定界面：
 /// - 无仓库 → 仓库管理界面
-/// - 有仓库 → 工作区界面
+/// - 有仓库 → 工作区界面（Dock 布局）
 ///
 /// 仓库管理界面写入配置后，通过观察配置变化自动切换到工作区界面。
 pub struct EchoApp {
@@ -21,6 +21,8 @@ pub struct EchoApp {
     state: AppState,
     /// 未配置仓库时持有的仓库管理视图实体。
     vault_manager: Option<Entity<VaultManagerView>>,
+    /// 工作区视图实体（Dock 布局）。
+    workspace: Option<Entity<WorkspaceView>>,
     /// 保持订阅存活，避免被 drop 后取消订阅（无需读取）。
     #[expect(dead_code)]
     subscriptions: Vec<Subscription>,
@@ -46,6 +48,11 @@ impl EchoApp {
             None
         };
 
+        // 提前创建工作区视图：观察回调拿不到 window，无法在那里惰性创建。
+        // 即使当前处于 NoVault，创建后也不会渲染。
+        let vault_path = config.read(cx).vault.path.clone();
+        let workspace = Some(cx.new(|cx| WorkspaceView::new(window, cx, vault_path.as_deref())));
+
         // 订阅配置变化：仓库变为有效时切换到工作区界面
         let subscriptions = vec![cx.observe(&config, |this, _, cx| {
             if matches!(this.state, AppState::NoVault) && this.config.read(cx).vault.is_valid() {
@@ -59,6 +66,7 @@ impl EchoApp {
             config,
             state,
             vault_manager,
+            workspace,
             subscriptions,
         }
     }
@@ -76,8 +84,10 @@ impl Render for EchoApp {
                 }
             },
             AppState::VaultLoaded => {
-                // 工作区界面：包含标题栏
-                root = root.child(workspace_view(cx));
+                // 工作区界面：Dock 布局
+                if let Some(workspace) = &self.workspace {
+                    root = root.child(workspace.clone());
+                }
             },
         }
         root
