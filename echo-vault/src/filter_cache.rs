@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::{LazyLock, Mutex};
 
 use crate::filter::IgnoreFilter;
-use crate::watcher::VaultError;
+use crate::watcher::{VaultError, vault_init_error};
 
 /// 过滤器缓存类型：(root, patterns) -> `IgnoreFilter`。
 type FilterCache = HashMap<(PathBuf, Vec<String>), IgnoreFilter>;
@@ -25,11 +25,11 @@ static FILTER_CACHE: LazyLock<Mutex<FilterCache>> = LazyLock::new(|| Mutex::new(
 ///
 /// # Errors
 ///
-/// 返回 [`VaultError::Init`] 当模式解析失败时。
+/// 返回 [`echo_core::EchoError::VaultInit`] 当模式解析失败时。
 pub fn get_or_create(root: PathBuf, patterns: Vec<String>) -> Result<IgnoreFilter, VaultError> {
     let mut cache = FILTER_CACHE
         .lock()
-        .map_err(|e| VaultError::Init(format!("filter cache lock poisoned: {e}")))?;
+        .map_err(|e| vault_init_error(format!("filter cache lock poisoned: {e}")))?;
 
     if let Some(filter) = cache.get(&(root.clone(), patterns.clone())) {
         return Ok(filter.clone());

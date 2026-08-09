@@ -45,17 +45,17 @@ impl IgnoreFilter {
     ///
     /// # Errors
     ///
-    /// 返回 [`VaultError::Init`] 当模式解析失败时。
+    /// 返回 [`echo_core::EchoError::VaultInit`] 当模式解析失败时。
     pub fn new(root: &Path, patterns: &[String]) -> Result<Self, VaultError> {
         let mut builder = GitignoreBuilder::new(root);
         for pattern in patterns {
             builder
                 .add_line(None, pattern)
-                .map_err(|e| VaultError::Init(e.to_string()))?;
+                .map_err(|e| crate::watcher::vault_init_error(e.to_string()))?;
         }
         let matcher = builder
             .build()
-            .map_err(|e| VaultError::Init(e.to_string()))?;
+            .map_err(|e| crate::watcher::vault_init_error(e.to_string()))?;
         Ok(Self {
             matcher: Arc::new(matcher),
             root: root.to_path_buf(),

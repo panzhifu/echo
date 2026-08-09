@@ -11,12 +11,12 @@ use pulldown_cmark::{
 
 use crate::block::{Block, BlockKind, CalloutVariant, TableAlign, TableCell, TableData};
 use crate::document::Document;
-use crate::error::MarkdownResult;
 use crate::inline::{InlineAttachment, InlineFragment, InlineStyle, InlineTextTree};
 use crate::wikilink::{
     CommentSegment, HighlightSegment, TagSegment, WikiSegment, split_comments, split_highlights,
     split_tags, split_wikilinks,
 };
+use echo_core::MarkdownResult;
 
 /// 解析 `Markdown` 文本为块树。
 ///

@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::config::schema::ConfigData;
-use crate::config::{ConfigError, ConfigResult};
+use crate::config::{ConfigResult, EchoError};
 
 /// 获取默认的全局配置文件路径。
 ///
@@ -39,19 +39,17 @@ fn home_dir() -> Option<PathBuf> {
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError`] 当序列化失败或写入磁盘失败时。
+/// 返回 [`EchoError`] 当序列化失败或写入磁盘失败时。
 pub fn save_config(config: &ConfigData, path: &Path) -> ConfigResult<()> {
-    let toml_str = toml::to_string_pretty(config).map_err(|e| {
-        ConfigError::Echo(crate::EchoError::ConfigParse {
-            message: format!("failed to serialize config: {e}"),
-        })
+    let toml_str = toml::to_string_pretty(config).map_err(|e| EchoError::ConfigParse {
+        message: format!("failed to serialize config: {e}"),
     })?;
 
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| ConfigError::Echo(crate::EchoError::Io(e)))?;
+        fs::create_dir_all(parent).map_err(EchoError::Io)?;
     }
 
-    fs::write(path, toml_str).map_err(|e| ConfigError::Echo(crate::EchoError::Io(e)))?;
+    let _ = fs::write(path, toml_str);
     Ok(())
 }
 
@@ -133,16 +131,14 @@ impl CachedConfig {
     ///
     /// # Errors
     ///
-    /// 返回 [`ConfigError`] 当序列化失败时。
+    /// 返回 [`EchoError`] 当序列化失败时。
     pub fn to_toml(&self) -> ConfigResult<String> {
         if let Some(cached) = self.cached_toml.take() {
             self.cached_toml.set(Some(cached.clone()));
             return Ok(cached);
         }
-        let toml_str = toml::to_string_pretty(&self.inner).map_err(|e| {
-            ConfigError::Echo(crate::EchoError::ConfigParse {
-                message: format!("failed to serialize config: {e}"),
-            })
+        let toml_str = toml::to_string_pretty(&self.inner).map_err(|e| EchoError::ConfigParse {
+            message: format!("failed to serialize config: {e}"),
         })?;
         self.cached_toml.set(Some(toml_str.clone()));
         Ok(toml_str)
@@ -152,13 +148,13 @@ impl CachedConfig {
     ///
     /// # Errors
     ///
-    /// 返回 [`ConfigError`] 当序列化失败或写入磁盘失败时。
+    /// 返回 [`EchoError`] 当序列化失败或写入磁盘失败时。
     pub fn save(&self, path: &Path) -> ConfigResult<()> {
         let toml_str = self.to_toml()?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| ConfigError::Echo(crate::EchoError::Io(e)))?;
+            fs::create_dir_all(parent).map_err(EchoError::Io)?;
         }
-        fs::write(path, toml_str).map_err(|e| ConfigError::Echo(crate::EchoError::Io(e)))?;
+        fs::write(path, toml_str).map_err(EchoError::Io)?;
         Ok(())
     }
 }
@@ -173,14 +169,11 @@ impl From<ConfigData> for CachedConfig {
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError`] 当读取文件或解析 TOML 失败时。
+/// 返回 [`EchoError`] 当读取文件或解析 TOML 失败时。
 pub fn load_config_from_path(path: &Path) -> ConfigResult<ConfigData> {
-    let content =
-        fs::read_to_string(path).map_err(|e| ConfigError::Echo(crate::EchoError::Io(e)))?;
-    toml::from_str(&content).map_err(|e| {
-        ConfigError::Echo(crate::EchoError::ConfigParse {
-            message: format!("failed to parse {}: {e}", path.display()),
-        })
+    let content = fs::read_to_string(path).map_err(EchoError::Io)?;
+    toml::from_str(&content).map_err(|e| EchoError::ConfigParse {
+        message: format!("failed to parse {}: {e}", path.display()),
     })
 }
 

@@ -4,18 +4,21 @@
 
 ### 文件监控
 
-- [x] 定义错误类型 (`watcher.rs` - `VaultError` / `PathNotFound` / `Init` / `Notify`)
+- [x] 定义错误类型 (`watcher.rs` - `VaultError` → `echo_core::EchoError` 类型别名)
 - [x] 定义事件类型 (`watcher.rs` - `VaultEvent` / `Create` / `Modify` / `Delete` / `Rename`)
 - [x] 实现监控器 (`watcher.rs` - `VaultWatcher` / `new()` / `with_paths()` / `watch()`)
 - [x] 后台线程 + channel 事件传递
 - [x] 路径不存在校验
 - [x] 重命名事件成对路径处理
 - [x] 编译验证通过 (`cargo build -p echo-vault`)
-- [x] 单元测试通过 (`cargo test -p echo-vault`，17 passed)
+- [x] 单元测试通过 (`cargo test -p echo-vault`，19 passed)
 - [x] 可停止监控 (`WatchGuard::stop()` / `Drop`)
 - [x] 支持忽略模式 (`filter.rs` - `IgnoreFilter`，gitignore 风格)
 - [x] 支持多路径监控 (`VaultWatcher::with_paths`)
 - [x] 事件防抖 (`debounce.rs` - `run_debouncer`)
+- [x] 过滤器缓存 (`filter_cache.rs` - `get_or_create()`)
+- [x] 错误统一 (VaultError → echo_core::EchoError)
+- [x] Clippy 清理 (消除 unused_import / dead_code / doc_markdown 等警告)
 
 ### 与 echo-app 集成
 
@@ -32,8 +35,9 @@ echo-vault/
 │   └── watcher_bench.rs  # criterion 基准测试
 └── src/
     ├── lib.rs            # 模块入口，导出公共 API
-    ├── watcher.rs        # 文件监控实现
+    ├── watcher.rs        # 文件监控实现 + 错误辅助函数
     ├── filter.rs         # gitignore 风格忽略过滤
+    ├── filter_cache.rs   # 过滤器编译缓存
     └── debounce.rs       # 事件防抖
 ```
 
@@ -47,7 +51,7 @@ echo-vault/
 | thiserror | 2 | 结构化错误类型 |
 | log | 0.4 | 日志门面 |
 | ignore | 0.4 | gitignore 风格模式匹配 |
-| echo-core | path | 共享错误类型 |
+| echo-core | path | 统一错误类型 (EchoError) |
 
 ### 监控流程
 
@@ -57,7 +61,7 @@ VaultWatcher::new(path) / with_paths(paths)
         ▼
     watch()
         │
-        ├── 路径存在? ──No──▶ Err(PathNotFound)
+        ├── 路径存在? ──No──▶ Err(VaultNotFound)
         │
         ▼
     notify::recommended_watcher(callback)   ── 过滤忽略模式
@@ -146,8 +150,29 @@ drop(guard);
 
 | 类型 | 说明 |
 |------|------|
-| `VaultError` | 监控错误枚举（PathNotFound / Init / Notify） |
-| `VaultResult<T>` | 结果别名 |
+| `VaultError` | **已弃用**：使用 [`echo_core::EchoError`] 代替，保留以维持向后兼容 |
+| `VaultResult<T>` | **已弃用**：`echo_core::EchoResult<T>` 类型别名 |
+
+### 错误辅助函数 (内部)
+
+| 函数 | 说明 |
+|------|------|
+| `notify_error(&notify::Error) -> EchoError` | 将 notify::Error 转换为 EchoError::VaultNotify |
+| `vault_init_error(msg) -> EchoError` | 创建 EchoError::VaultInit |
+| `path_not_found(path) -> EchoError` | 创建 EchoError::VaultNotFound |
+
+## 错误层级
+
+```
+EchoError (统一错误类型 — 来自 echo-core)
+├── VaultNotFound { path }    ← 监控路径不存在
+├── VaultInit { message }     ← watcher 初始化失败
+└── VaultNotify { message }   ← 底层 notify 错误
+
+向后兼容类型别名：
+├── VaultError = EchoError
+└── VaultResult<T> = EchoResult<T>
+```
 
 ## 性能基准
 
@@ -165,15 +190,6 @@ drop(guard);
 | `watcher_with_paths_10` | 424.17 ns | 创建 10 路径监控器 |
 | `watcher_builder_full` | 898.80 ns | 完整 builder 链式调用 |
 
-## 错误层级
-
-```
-VaultError (vault 监控错误)
-├── PathNotFound { path }     -> 监控路径不存在
-├── Init(String)              -> watcher 初始化失败
-└── Notify(notify::Error)     -> 底层 notify 错误
-```
-
 ## 注意事项
 
 - `watch()` 启动两个后台线程：notify 监控线程（持有 watcher，保持存活）和防抖线程
@@ -182,3 +198,5 @@ VaultError (vault 监控错误)
 - 通过 [`WatchGuard`] 停止监控：调用 `stop()` 或 drop 守护即可；重复调用安全
 - `notify` crate 在 Linux 上使用 inotify，Windows 上使用 ReadDirectoryChangesW，macOS 上使用 FSEvents
 - 重命名事件在某些平台上可能表现为 Create + Delete 而非单个 Rename
+- 错误类型已统一到 `echo_core::EchoError`，`VaultError` 为向后兼容的类型别名
+- 过滤器编译结果通过 `FILTER_CACHE` 全局缓存，相同 `(root, patterns)` 组合复用已编译的 `IgnoreFilter`

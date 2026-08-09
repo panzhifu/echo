@@ -1633,6 +1633,7 @@ name = "echo-markdown"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "echo-core",
  "memchr",
  "pulldown-cmark",
  "thiserror 2.0.19",

@@ -6,7 +6,7 @@ mod persist;
 mod schema;
 mod validate;
 
-pub use crate::error::{ConfigError, ConfigResult};
+pub use crate::error::{ConfigResult, EchoError};
 pub use layers::{Layers, load_layers};
 pub use persist::{CachedConfig, default_config_path, load_config_from_path, save_config};
 pub use schema::*;
@@ -21,7 +21,7 @@ pub use validate::validate;
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError`] 当任何步骤失败时。
+/// 返回 [`EchoError`] 当任何步骤失败时。
 pub fn load_config(workspace: Option<&Path>) -> ConfigResult<ConfigData> {
     let layers = load_layers(workspace)?;
     let config = layers.merge()?;
@@ -33,7 +33,7 @@ pub fn load_config(workspace: Option<&Path>) -> ConfigResult<ConfigData> {
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError`] 当保存失败时。
+/// 返回 [`EchoError`] 当保存失败时。
 pub fn save_config_to_default(config: &ConfigData) -> ConfigResult<()> {
     save_config(config, &default_config_path())?;
     Ok(())

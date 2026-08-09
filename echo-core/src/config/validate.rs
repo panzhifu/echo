@@ -1,3 +1,4 @@
+use crate::EchoError;
 use crate::config::ConfigResult;
 use crate::config::schema::ConfigData;
 
@@ -11,14 +12,14 @@ use crate::config::schema::ConfigData;
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError::Validation`] 当校验失败时。
+/// 返回 [`EchoError::ConfigValidation`] 当校验失败时。
 pub fn validate(config: &ConfigData) -> ConfigResult<()> {
     if let Some(path) = &config.vault.path
         && path.is_empty()
     {
-        return Err(super::ConfigError::Validation(
-            "vault.path must not be empty".into(),
-        ));
+        return Err(EchoError::ConfigValidation {
+            message: "vault.path must not be empty".into(),
+        });
     }
 
     // 日志校验：启用文件输出时，文件路径不能是空字符串
@@ -26,25 +27,25 @@ pub fn validate(config: &ConfigData) -> ConfigResult<()> {
         && let Some(path) = &config.log.file_path
         && path.trim().is_empty()
     {
-        return Err(super::ConfigError::Validation(
-            "log.file_path must not be empty when log.file_output is true".into(),
-        ));
+        return Err(EchoError::ConfigValidation {
+            message: "log.file_path must not be empty when log.file_output is true".into(),
+        });
     }
 
     // 编辑器校验：制表符宽度必须 > 0
     if config.editor.tab_size == 0 {
-        return Err(super::ConfigError::Validation(
-            "editor.tab_size must be greater than 0".into(),
-        ));
+        return Err(EchoError::ConfigValidation {
+            message: "editor.tab_size must be greater than 0".into(),
+        });
     }
 
     // 主题校验：字体大小若设置则必须 > 0
     if let Some(size) = config.theme.font_size
         && size <= 0.0
     {
-        return Err(super::ConfigError::Validation(
-            "theme.font_size must be greater than 0".into(),
-        ));
+        return Err(EchoError::ConfigValidation {
+            message: "theme.font_size must be greater than 0".into(),
+        });
     }
 
     Ok(())

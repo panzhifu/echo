@@ -24,19 +24,31 @@ const DEFAULT_DEBOUNCE: Duration = Duration::from_millis(100);
 const STOP_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 /// Vault 监控错误类型。
-#[derive(Debug, thiserror::Error)]
-pub enum VaultError {
-    /// 监控的路径不存在。
-    #[error("path not found: {path}")]
-    PathNotFound { path: PathBuf },
+///
+/// **已弃用**：使用 [`echo_core::EchoError`] 代替。
+/// 保留此类型别名以维持向后兼容性。
+pub type VaultError = echo_core::EchoError;
 
-    /// 监控器初始化失败。
-    #[error("watcher init failed: {0}")]
-    Init(String),
+/// Vault 监控结果类型。
+#[allow(dead_code)]
+pub type VaultResult<T> = echo_core::EchoResult<T>;
 
-    /// notify 错误。
-    #[error("notify error: {0}")]
-    Notify(#[from] notify::Error),
+/// 辅助函数：将 `notify::Error` 转换为 `EchoError`。
+///
+/// 由于 echo-core 不依赖 notify crate，这里手动转换。
+#[allow(dead_code)]
+pub(crate) fn notify_error(err: &notify::Error) -> echo_core::EchoError {
+    echo_core::EchoError::vault_notify(err.to_string())
+}
+
+/// 辅助函数：创建 vault 初始化错误。
+pub(crate) fn vault_init_error(msg: impl Into<String>) -> echo_core::EchoError {
+    echo_core::EchoError::vault_init(msg)
+}
+
+/// 辅助函数：创建路径不存在错误。
+pub(crate) fn path_not_found(path: PathBuf) -> echo_core::EchoError {
+    echo_core::EchoError::VaultNotFound { path }
 }
 
 /// 文件夹变化事件。
@@ -173,17 +185,17 @@ impl VaultWatcher {
     ///
     /// # Errors
     ///
-    /// - [`VaultError::PathNotFound`][]: 任一监控路径不存在
-    /// - [`VaultError::Init`]: watcher 初始化或添加监控路径失败
+    /// - [`EchoError::VaultNotFound`][]: 任一监控路径不存在
+    /// - [`EchoError::VaultInit`]: watcher 初始化或添加监控路径失败
     pub fn watch(&self) -> Result<(Receiver<VaultEvent>, WatchGuard), VaultError> {
         if self.paths.is_empty() {
-            return Err(VaultError::Init("no paths to watch".into()));
+            return Err(vault_init_error("no paths to watch"));
         }
 
         // 验证所有路径
         for path in &self.paths {
             if !path.exists() {
-                return Err(VaultError::PathNotFound { path: path.clone() });
+                return Err(path_not_found(path.clone()));
             }
         }
 
@@ -220,13 +232,13 @@ impl VaultWatcher {
                 Err(e) => log::error!("watch error: {e}"),
             }
         })
-        .map_err(|e| VaultError::Init(e.to_string()))?;
+        .map_err(|e| vault_init_error(e.to_string()))?;
 
         // 监控所有路径
         for path in &self.paths {
             watcher
                 .watch(path, RecursiveMode::Recursive)
-                .map_err(|e| VaultError::Init(e.to_string()))?;
+                .map_err(|e| vault_init_error(e.to_string()))?;
         }
 
         // 停止标志
@@ -323,14 +335,14 @@ mod tests {
     fn test_path_not_found_returns_error() {
         let watcher = VaultWatcher::new("/nonexistent/path/that/does/not/exist");
         let result = watcher.watch();
-        assert!(matches!(result, Err(VaultError::PathNotFound { .. })));
+        assert!(matches!(result, Err(VaultError::VaultNotFound { .. })));
     }
 
     #[test]
     fn test_empty_paths_returns_error() {
         let watcher = VaultWatcher::with_paths(Vec::new());
         let result = watcher.watch();
-        assert!(matches!(result, Err(VaultError::Init(_))));
+        assert!(matches!(result, Err(VaultError::VaultInit { .. })));
     }
 
     #[test]

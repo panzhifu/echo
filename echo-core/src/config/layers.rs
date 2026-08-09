@@ -4,7 +4,7 @@ use serde::Deserialize as _;
 
 use crate::config::persist::load_config_from_path;
 use crate::config::schema::ConfigData;
-use crate::config::{ConfigError, ConfigResult};
+use crate::config::{ConfigResult, EchoError};
 
 /// 分层配置来源。
 ///
@@ -40,37 +40,32 @@ impl Layers {
     ///
     /// # Errors
     ///
-    /// 返回 [`ConfigError::Echo`] 当序列化或反序列化失败时。
+    /// 返回 [`EchoError::ConfigParse`] 当序列化或反序列化失败时。
     pub fn merge(self) -> ConfigResult<ConfigData> {
-        let mut merged = toml::Value::try_from(ConfigData::default()).map_err(|e| {
-            ConfigError::Echo(crate::EchoError::ConfigParse {
+        let mut merged =
+            toml::Value::try_from(ConfigData::default()).map_err(|e| EchoError::ConfigParse {
                 message: format!("failed to serialize defaults: {e}"),
-            })
-        })?;
+            })?;
 
         if let Some(global) = self.global {
-            let global_value = toml::Value::try_from(&global).map_err(|e| {
-                ConfigError::Echo(crate::EchoError::ConfigParse {
+            let global_value =
+                toml::Value::try_from(&global).map_err(|e| EchoError::ConfigParse {
                     message: format!("failed to serialize global config: {e}"),
-                })
-            })?;
+                })?;
             merge_toml_value(&mut merged, global_value);
         }
 
         if let Some(workspace) = self.workspace {
-            let workspace_value = toml::Value::try_from(&workspace).map_err(|e| {
-                ConfigError::Echo(crate::EchoError::ConfigParse {
+            let workspace_value =
+                toml::Value::try_from(&workspace).map_err(|e| EchoError::ConfigParse {
                     message: format!("failed to serialize workspace config: {e}"),
-                })
-            })?;
+                })?;
             merge_toml_value(&mut merged, workspace_value);
         }
 
         // 直接从 toml::Value 反序列化，避免多余的 to_string + from_str 往返
-        ConfigData::deserialize(merged).map_err(|e| {
-            ConfigError::Echo(crate::EchoError::ConfigParse {
-                message: format!("failed to deserialize merged config: {e}"),
-            })
+        ConfigData::deserialize(merged).map_err(|e| EchoError::ConfigParse {
+            message: format!("failed to deserialize merged config: {e}"),
         })
     }
 }
@@ -107,7 +102,7 @@ fn merge_toml_value(base: &mut toml::Value, overlay: toml::Value) {
 ///
 /// # Errors
 ///
-/// 返回 [`ConfigError`] 当读取或解析配置文件失败时。
+/// 返回 [`EchoError`] 当读取或解析配置文件失败时。
 pub fn load_layers(workspace: Option<&Path>) -> ConfigResult<Layers> {
     let mut layers = Layers::new();
 

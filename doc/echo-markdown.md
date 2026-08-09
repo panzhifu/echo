@@ -48,14 +48,15 @@
 
 ### 测试与基准
 
-- [x] 单元测试（block / document / inline / serialize / wikilink / error 模块，45 passed）
+- [x] 单元测试（block / document / inline / serialize / wikilink / error 模块，43 passed）
+- [x] 集成测试（new_features / new_formats / parse / roundtrip / wikilink，76 passed）
 - [x] 基准测试 (`markdown_bench` - 14 项)：解析 / 序列化 / 往返 / WikiLink 后处理 / 内联树操作
 
 ## 当前架构
 
 ```
 echo-markdown/
-├── Cargo.toml            # 依赖: pulldown-cmark, thiserror, memchr
+├── Cargo.toml            # 依赖: pulldown-cmark, thiserror, memchr, echo-core
 ├── benches/
 │   └── markdown_bench.rs # criterion 基准测试
 └── src/
@@ -66,7 +67,7 @@ echo-markdown/
     ├── parser.rs         # Markdown 解析器 (parse / extract_frontmatter / try_make_callout)
     ├── serialize.rs      # 序列化 (to_markdown)
     ├── wikilink.rs       # WikiLink 后处理 (split_wikilinks / split_embeds / split_comments / split_highlights / split_tags)
-    └── error.rs          # 错误类型 (MarkdownError / MarkdownResult)
+    └── error.rs          # 错误类型 (MarkdownError / MarkdownResult，已统一到 echo_core::EchoError)
 ```
 
 ## 技术实现
@@ -78,6 +79,7 @@ echo-markdown/
 | pulldown-cmark | 0.12 | Markdown 解析（CommonMark 兼容 + 扩展） |
 | thiserror | 2 | 结构化错误类型 |
 | memchr | 2.7 | SIMD 加速字节扫描（WikiLink 后处理） |
+| echo-core | path | 统一错误类型 |
 
 ### 解析流程
 
@@ -114,6 +116,7 @@ Document (块树)
 |------|------|:----:|:------:|
 | 段落 | 纯文本 | ✅ | ✅ |
 | 标题 | `# H1` ~ `###### H6` | ✅ | ✅ |
+| Setext 标题 | `H1\n===` / `H2\n---` | ✅ | ✅ |
 | 粗体 | `**bold**` | ✅ | ✅ |
 | 斜体 | `*italic*` | ✅ | ✅ |
 | 删除线 | `~~strike~~` | ✅ | ✅ |
@@ -131,8 +134,10 @@ Document (块树)
 | 自动链接 | `<url>` | ✅ | ✅ |
 | 脚注 | `[^label]` | ✅ | ✅ |
 | 定义列表 | `term : description` | ✅ | ✅ |
-| 数学公式 | `$...$` / `$$...$$` | ✅ | ✅ |
+| 行内数学 | `$...$` | ✅ | ✅ |
+| 块级数学 | `$$...$$` | ✅ | ✅ |
 | HTML 块 | `<div>` | ✅ | ✅ |
+| 行内 HTML | `<span>` | ✅ | ✅ |
 | **YAML Frontmatter** | `---\n...\n---` | ✅ | ✅ |
 | **Callout** | `> [!NOTE] Title` | ✅ | ✅ |
 | **Mermaid** | ` ```mermaid ` | ✅ | ✅ |
@@ -318,14 +323,18 @@ let table = TableData {
 
 | 类型 | 说明 |
 |------|------|
-| `MarkdownError` | 错误枚举（Parse 变体） |
-| `MarkdownResult<T>` | 结果别名 |
+| `MarkdownError` | **已弃用**：使用 [`echo_core::EchoError`] 代替，保留以维持向后兼容 |
+| `MarkdownResult<T>` | 结果别名，等同于 `echo_core::EchoResult<T>` |
 
 ## 错误层级
 
 ```
-MarkdownError (Markdown 处理错误)
-└── Parse(String)  -> 解析失败
+EchoError (统一错误类型 — 来自 echo-core)
+└── Markdown { message }     <- Markdown 处理错误
+
+向后兼容类型别名：
+├── MarkdownError = EchoError
+└── MarkdownResult<T> = EchoResult<T>
 ```
 
 ## 性能基准
@@ -356,3 +365,4 @@ MarkdownError (Markdown 处理错误)
 - Callout 解析在块树构建后执行，识别引用块中的 `[!VARIANT]` 语法
 - YAML frontmatter 在解析前提取，作为首个块插入文档
 - Mermaid 图表通过 ` ```mermaid ` 代码块识别，序列化为独立块类型
+- 错误类型已统一到 `echo_core::EchoError`，`MarkdownError` 为向后兼容的类型别名

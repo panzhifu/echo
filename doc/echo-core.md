@@ -2,9 +2,27 @@
 
 ## 任务清单
 
+### 统一错误类型
+
+- [x] 定义 `EchoError` 枚举 (`error.rs` - 11 种变体)
+- [x] 统一配置错误 (`ConfigError` → `EchoError::ConfigValidation` / `EchoError::ConfigParse`)
+- [x] 统一 Markdown 错误 (`MarkdownError` → `EchoError::Markdown`)
+- [x] 统一 Vault 错误 (`VaultError` → `EchoError::VaultInit` / `EchoError::VaultNotify`)
+- [x] 日志错误保留 (`LogError` 独立枚举 + `impl From<LogError> for EchoError`)
+- [x] 便捷构造函数 (`EchoError::markdown()` / `vault_init()` / `vault_notify()` / `config_validation()`)
+- [x] 向后兼容类型别名 (`ConfigError` / `MarkdownError` / `VaultError` → `EchoError`)
+
+### ID 类型系统
+
+- [x] 定义 `Id<T>` newtype 包装 Uuid (`id.rs`)
+- [x] 定义具体 ID 类型 (`NodeId` / `BlockId` / `FileId` / `VaultId`)
+- [x] 定义 `Timestamp` 类型 (毫秒时间戳)
+- [x] 实现公共 trait (Copy / Eq / Hash / Debug / Display / Serialize)
+- [x] 支持编译时类型区分 (`NodeId` 与 `BlockId` 不可混用)
+- [x] `now()` 和 `zero_timestamp()` 便捷函数
+
 ### 配置系统
 
-- [x] 定义错误类型 (`error.rs` - `EchoError` / `ConfigError` / `LogError` + `EchoResult` / `ConfigResult` / `LogResult`)
 - [x] 定义配置 schema (`schema.rs` - `ConfigData` / `VaultConfig` / `VaultEntry` / `LogConfig` / `LogLevel` / `RotationKind` / `ThemeConfig` / `EditorConfig` / `SidebarConfig`)
 - [x] `extra` 兜底字段 (`ConfigData.extra: HashMap`，`#[serde(flatten)]`，未知字段向前兼容)
 - [x] 定义默认值 (`defaults.rs` - `default_true()` / `default_tab_size()` / `default_sidebar_width()`，配合 `#[serde(default = "...")]`)
@@ -15,6 +33,7 @@
 - [x] 语义校验 (`validate.rs` - vault 路径非空 + 日志文件路径非空 + editor.tab_size>0 + theme.font_size>0 校验)
 - [x] 统一加载入口 (`mod.rs` - `load_config()` 串联 加载->合并->校验)
 - [x] 支持 theme / editor / sidebar 配置组 (`schema.rs` - `ThemeConfig` / `EditorConfig` / `SidebarConfig`，含 `ThemeMode`)
+- [x] Clippy 清理 (消除 redundant_closure / semicolon / dead_code 等警告)
 - [ ] 运行时可变 + 变更通知（由 echo-app 层 GPUI `Model<Config>` + `cx.notify()` 实现，echo-core 仅提供数据模型）
 
 ### 日志系统
@@ -30,25 +49,20 @@
 
 ### 测试与基准
 
-- [x] 单元测试（config / error / log 模块，39 passed）
+- [x] 单元测试（config / error / log / id 模块，56 passed）
 - [x] 配置基准 (`config_bench` - 9 项)：序列化 / 反序列化 / 合并 / 校验 / add_recent / 保存 / 磁盘加载 / 日志级别转换 / 默认路径
 
 ### UI 层 (echo-app)
 
-> 详见 `doc/echo-app.md`（待建）。echo-core 仅提供配置与日志能力，UI 由 echo-app 实现。
-
-- [ ] 自定义标题栏（左侧 `SidebarCollapsible` 图标 + 右侧静态图标）
-- [ ] 底部状态栏置于主面板下方
-- [ ] Welcome 视图（文件夹选择器 + 最近仓库列表）
-- [ ] 仓库管理界面（settings/vault）
-- [ ] 启动流程：无配置 -> Welcome，有配置 -> 主界面
+> 详见 `doc/echo-app.md`。echo-core 仅提供配置与日志能力，UI 由 echo-app 实现。
 
 ## 当前架构
 
 ```
 echo-core/src/
 ├── lib.rs              # 模块导出
-├── error.rs            # EchoError + ConfigError + LogError + 结果类型
+├── error.rs            # 统一错误类型 (EchoError 11 种变体 + 便捷构造函数 + 向后兼容别名)
+├── id.rs               # ID 类型系统 (Id<T> / NodeId / BlockId / FileId / VaultId / Timestamp)
 ├── log/                # 日志模块
 │   └── mod.rs          # 日志初始化 (init / init_from_config / LogGuard)
 └── config/
@@ -57,7 +71,102 @@ echo-core/src/
     ├── defaults.rs     # 默认值函数
     ├── layers.rs       # 分层加载 + 递归合并
     ├── validate.rs     # 语义校验 (vault + log + editor + theme)
-    └── persist.rs      # 读写 TOML + 跨平台路径
+    └── persist.rs      # 读写 TOML + 跨平台路径 + CachedConfig
+```
+
+## 统一错误类型
+
+所有 crate 的错误统一到 `EchoError`，通过 `From` trait 实现自动转换。
+
+### EchoError 变体
+
+```
+EchoError (统一错误类型)
+├── Io (std::io::Error)           ← 文件/网络 IO 错误
+├── VaultNotFound { path }        ← vault 路径不存在
+├── ConfigNotFound { path }       ← 配置文件不存在
+├── ConfigParse { message }       ← TOML 解析失败
+├── InvalidPath { path }          ← 无效路径
+├── VersionMismatch { expected, actual }  ← 版本不匹配
+├── InvalidId { message }         ← ID 格式错误
+├── ConfigValidation { message }  ← 配置语义校验失败
+├── Markdown { message }          ← Markdown 解析/序列化错误
+├── VaultInit { message }         ← vault watcher 初始化失败
+└── VaultNotify { message }       ← 文件系统通知错误 (notify::Error 作为字符串)
+```
+
+### 便捷构造函数
+
+| 函数 | 说明 |
+|------|------|
+| `EchoError::markdown(msg)` | 创建 Markdown 错误 |
+| `EchoError::vault_init(msg)` | 创建 vault 初始化错误 |
+| `EchoError::vault_notify(msg)` | 创建 vault 通知错误 |
+| `EchoError::config_validation(msg)` | 创建配置校验错误 |
+
+### 向后兼容类型别名
+
+| 类型别名 | 实际类型 | 说明 |
+|---------|---------|------|
+| `ConfigError` | `EchoError` | 配置错误（已弃用，直接使用 `EchoError`） |
+| `MarkdownError` | `EchoError` | Markdown 错误（已弃用，直接使用 `EchoError`） |
+| `VaultError` | `EchoError` | Vault 错误（已弃用，直接使用 `EchoError`） |
+| `ConfigResult<T>` | `EchoResult<T>` | 配置结果别名 |
+| `LogResult<T>` | `EchoResult<T>` | 日志结果别名 |
+| `MarkdownResult<T>` | `EchoResult<T>` | Markdown 结果别名 |
+| `VaultResult<T>` | `EchoResult<T>` | Vault 结果别名 |
+
+### LogError (保留独立枚举)
+
+```
+LogError (日志细粒度错误)
+├── Init (String)         → 转换为 EchoError::ConfigParse
+└── File (std::io::Error) → 转换为 EchoError::Io
+```
+
+## ID 类型系统
+
+使用 Rust 的类型系统实现编译时区分的 ID 类型，避免运行时混淆。
+
+### 类型定义
+
+```
+Id<T> (newtype 包装 Uuid)
+├── NodeId    ← 文档节点 ID
+├── BlockId   ← 块 ID
+├── FileId    ← 文件 ID
+└── VaultId   ← Vault ID
+
+Timestamp    ← 毫秒时间戳 (u64)
+```
+
+### 公共 Trait
+
+所有 ID 类型自动实现以下 trait：
+
+| Trait | 用途 |
+|-------|------|
+| `Copy` | 值语义，无需 clone |
+| `Eq` + `Hash` | 可用作 HashMap/HashSet 键 |
+| `Debug` | 调试输出（含类型名，如 `NodeId(abc-123)`） |
+| `Display` | 格式化输出（Uuid 字符串） |
+| `Serialize` / `Deserialize` | serde 序列化支持 |
+
+### 使用示例
+
+```rust
+use echo_core::{NodeId, BlockId, VaultId, Timestamp};
+
+// 类型安全：NodeId 和 BlockId 不可混用
+let node = NodeId::new();
+let block = BlockId::new();
+
+// 编译错误：类型不匹配
+// let wrong: BlockId = node;
+
+// Timestamp
+let ts = Timestamp::now();
+let zero = Timestamp::zero();
 ```
 
 ## 配置加载流程
@@ -151,6 +260,18 @@ collapsed = false
 | `EditorConfig` | 编辑器配置（tab_size / show_line_numbers） |
 | `SidebarConfig` | 侧边栏配置（width / collapsed） |
 
+### ID 类型
+
+| 类型 | 说明 |
+|------|------|
+| `NodeId` | 文档节点 ID (Uuid newtype) |
+| `BlockId` | 块 ID (Uuid newtype) |
+| `FileId` | 文件 ID (Uuid newtype) |
+| `VaultId` | Vault ID (Uuid newtype) |
+| `Timestamp` | 毫秒时间戳 (u64 包装) |
+| `now()` | 获取当前时间戳 |
+| `zero_timestamp()` | 获取零值时间戳 |
+
 ### 分层加载
 
 | 类型 | 说明 |
@@ -186,12 +307,14 @@ collapsed = false
 
 | 类型 | 说明 |
 |------|------|
-| `EchoError` | 核心错误枚举 |
-| `ConfigError` | 配置错误枚举 |
-| `LogError` | 日志错误枚举 |
+| `EchoError` | 核心错误枚举（11 种变体） |
+| `LogError` | 日志错误枚举（保留独立枚举用于细粒度处理） |
 | `EchoResult<T>` | 核心结果别名 |
-| `ConfigResult<T>` | 配置结果别名 |
-| `LogResult<T>` | 日志结果别名 |
+| `ConfigError` | **已弃用**：`EchoError` 类型别名 |
+| `ConfigResult<T>` | **已弃用**：`EchoResult<T>` 类型别名 |
+| `LogResult<T>` | **已弃用**：`EchoResult<T>` 类型别名 |
+| `MarkdownResult<T>` | **已弃用**：`EchoResult<T>` 类型别名 |
+| `VaultResult<T>` | **已弃用**：`EchoResult<T>` 类型别名 |
 
 ## 性能基准
 
@@ -208,19 +331,11 @@ collapsed = false
 | `log_level_to_filter` | 1.52 ns | 日志级别转换 |
 | `default_config_path` | 665.57 ns | 默认路径计算 |
 
-### 错误层级
+## 注意事项
 
-```
-EchoError (核心错误)
-├── Io (std::io::Error)
-├── VaultNotFound
-├── ConfigNotFound
-├── ConfigParse
-├── InvalidPath
-├── VersionMismatch
-└── InvalidId
-
-LogError (日志错误)
-├── Init (String)  -> 转换为 EchoError::ConfigParse
-└── File (std::io::Error) -> 转换为 EchoError::Io
-```
+- `EchoError` 是整个 workspace 的统一错误类型，所有 crate 的错误都通过 `From` trait 转换到 `EchoError`
+- 外部 crate 错误（如 `notify::Error`）以字符串形式表示，避免 echo-core 依赖外部 crate
+- `VaultError` 和 `MarkdownError` 是 `EchoError` 的类型别名，保留用于向后兼容
+- `LogError` 保留为独立枚举，用于日志初始化/文件操作的细粒度错误处理
+- `CachedConfig` 使用 `Cell<Option<String>>` 实现内部可变性缓存，线程安全由调用方保证
+- ID 类型使用编译时泛型区分，`NodeId` 和 `BlockId` 不可混用，避免运行时类型错误

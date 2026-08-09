@@ -9,10 +9,15 @@ use thiserror::Error;
 /// Each variant carries sufficient context (paths, messages, version info) to
 /// aid debugging and to present actionable information to users.
 ///
-/// `EchoError` serves as the foundation of echo's error handling hierarchy:
-/// - Lower-level crates use `thiserror` to define their own error enums and
-///   convert into `EchoError` via `#[from]`.
+/// `EchoError` serves as the single error type for the entire workspace:
+/// - Lower-level crates convert their errors into `EchoError` via `From`.
 /// - Application layers aggregate errors using `anyhow`.
+///
+/// # Design Notes
+///
+/// External crate errors (e.g., `notify::Error`, `ignore::Error`) are represented
+/// as string messages rather than wrapped types. This keeps `echo-core` free of
+/// dependencies on crates that only specific modules need.
 ///
 /// # Examples
 ///
@@ -65,36 +70,121 @@ pub enum EchoError {
     /// strings.
     #[error("invalid id: {message}")]
     InvalidId { message: String },
+
+    /// Configuration semantic validation failed (e.g., out-of-range values).
+    #[error("config validation failed: {message}")]
+    ConfigValidation { message: String },
+
+    /// Markdown parsing or serialization failed.
+    ///
+    /// Used by `echo-markdown` for structural errors during document processing.
+    #[error("markdown error: {message}")]
+    Markdown { message: String },
+
+    /// Vault watcher initialization failed.
+    ///
+    /// Used by `echo-vault` when the file system watcher cannot be created
+    /// or configured.
+    #[error("vault watcher init failed: {message}")]
+    VaultInit { message: String },
+
+    /// File system notification error.
+    ///
+    /// Used by `echo-vault` when the underlying `notify` crate encounters
+    /// an error. The original error message is preserved as a string to
+    /// avoid a hard dependency on `notify` in `echo-core`.
+    #[error("vault notify error: {message}")]
+    VaultNotify { message: String },
 }
 
 /// Type alias for [`std::result::Result`] with [`EchoError`] as the error type.
 ///
-/// Use this throughout `echo-core` and lower-level crates for consistent
-/// error handling.
+/// Use this throughout the entire workspace for consistent error handling.
 pub type EchoResult<T> = Result<T, EchoError>;
+
+impl EchoError {
+    /// Create a markdown error from a message.
+    ///
+    /// This is a convenience constructor for `EchoError::Markdown`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use echo_core::EchoError;
+    /// let err = EchoError::markdown("unexpected eof");
+    /// ```
+    #[must_use]
+    pub fn markdown(message: impl Into<String>) -> Self {
+        EchoError::Markdown {
+            message: message.into(),
+        }
+    }
+
+    /// Create a vault initialization error from a message.
+    ///
+    /// This is a convenience constructor for `EchoError::VaultInit`.
+    #[must_use]
+    pub fn vault_init(message: impl Into<String>) -> Self {
+        EchoError::VaultInit {
+            message: message.into(),
+        }
+    }
+
+    /// Create a vault notify error from a message.
+    ///
+    /// This is a convenience constructor for `EchoError::VaultNotify`.
+    /// Used to convert `notify::Error` without depending on the `notify` crate.
+    #[must_use]
+    pub fn vault_notify(message: impl Into<String>) -> Self {
+        EchoError::VaultNotify {
+            message: message.into(),
+        }
+    }
+
+    /// Create a config validation error from a message.
+    ///
+    /// This is a convenience constructor for `EchoError::ConfigValidation`.
+    #[must_use]
+    pub fn config_validation(message: impl Into<String>) -> Self {
+        EchoError::ConfigValidation {
+            message: message.into(),
+        }
+    }
+}
+
+// ========== 向后兼容的 Result 类型别名 ==========
 
 /// Configuration-specific error type.
 ///
-/// Used for errors that occur during configuration loading, validation,
-/// and persistence. Wraps [`EchoError`] for underlying IO/parse failures.
-#[derive(Debug, Error)]
-pub enum ConfigError {
-    /// Semantic validation failed (e.g., out-of-range values).
-    #[error("config validation failed: {0}")]
-    Validation(String),
+/// Alias for `EchoError` — provided for backward compatibility.
+pub type ConfigError = EchoError;
 
-    /// Underlying error from IO or serialization.
-    #[error(transparent)]
-    Echo(#[from] EchoError),
-}
+/// Configuration-specific result type.
+///
+/// Alias for `EchoResult<T>` — provided for backward compatibility.
+pub type ConfigResult<T> = EchoResult<T>;
 
-/// Type alias for [`std::result::Result`] with [`ConfigError`] as the error type.
-pub type ConfigResult<T> = Result<T, ConfigError>;
+/// Logging-specific result type.
+///
+/// Alias for `EchoResult<T>` — provided for backward compatibility.
+pub type LogResult<T> = EchoResult<T>;
+
+/// Markdown-specific result type.
+///
+/// Alias for `EchoResult<T>` — provided for backward compatibility.
+pub type MarkdownResult<T> = EchoResult<T>;
+
+/// Vault-specific result type.
+///
+/// Alias for `EchoResult<T>` — provided for backward compatibility.
+pub type VaultResult<T> = EchoResult<T>;
+
+// ========== 日志错误（保留用于细粒度错误处理） ==========
 
 /// Logging-specific error type.
 ///
 /// Used for errors that occur during logger initialization and log file operations.
-/// Can be converted into [`EchoError`] via `#[from]` for unified error handling.
+/// Can be converted into [`EchoError`] via `From` for unified error handling.
 #[derive(Debug, Error)]
 pub enum LogError {
     /// Logger initialization failed (e.g., already initialized).
@@ -114,9 +204,6 @@ impl From<LogError> for EchoError {
         }
     }
 }
-
-/// Type alias for [`std::result::Result`] with [`LogError`] as the error type.
-pub type LogResult<T> = Result<T, LogError>;
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::panic, clippy::unnecessary_literal_unwrap)]
@@ -195,6 +282,44 @@ mod tests {
     }
 
     #[test]
+    fn markdown_error_constructor() {
+        let err = EchoError::markdown("unexpected eof");
+        match err {
+            EchoError::Markdown { message } => assert_eq!(message, "unexpected eof"),
+            _ => panic!("Expected Markdown variant"),
+        }
+    }
+
+    #[test]
+    fn vault_init_error_constructor() {
+        let err = EchoError::vault_init("failed to create watcher");
+        match err {
+            EchoError::VaultInit { message } => assert_eq!(message, "failed to create watcher"),
+            _ => panic!("Expected VaultInit variant"),
+        }
+    }
+
+    #[test]
+    fn vault_notify_error_constructor() {
+        let err = EchoError::vault_notify("permission denied");
+        match err {
+            EchoError::VaultNotify { message } => assert_eq!(message, "permission denied"),
+            _ => panic!("Expected VaultNotify variant"),
+        }
+    }
+
+    #[test]
+    fn config_validation_error_constructor() {
+        let err = EchoError::config_validation("tab_size must be > 0");
+        match err {
+            EchoError::ConfigValidation { message } => {
+                assert_eq!(message, "tab_size must be > 0");
+            },
+            _ => panic!("Expected ConfigValidation variant"),
+        }
+    }
+
+    #[test]
     fn echo_result_ok_value() {
         let result: EchoResult<u32> = Ok(42);
         assert_eq!(result.unwrap(), 42);
@@ -206,6 +331,27 @@ mod tests {
             message: "bad format".to_string(),
         });
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn log_error_converts_to_echo_error() {
+        let log_err = LogError::Init("already initialized".to_string());
+        let echo_err: EchoError = log_err.into();
+        match echo_err {
+            EchoError::ConfigParse { message } => assert_eq!(message, "already initialized"),
+            _ => panic!("Expected ConfigParse variant"),
+        }
+    }
+
+    #[test]
+    fn log_file_error_converts_to_io() {
+        let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
+        let log_err = LogError::File(io_err);
+        let echo_err: EchoError = log_err.into();
+        match echo_err {
+            EchoError::Io(_) => {},
+            _ => panic!("Expected Io variant"),
+        }
     }
 
     #[test]
@@ -231,6 +377,12 @@ mod tests {
             EchoError::InvalidId {
                 message: "test".to_string(),
             },
+            EchoError::ConfigValidation {
+                message: "test".to_string(),
+            },
+            EchoError::markdown("test"),
+            EchoError::vault_init("test"),
+            EchoError::vault_notify("test"),
         ];
         for err in errors {
             let msg = err.to_string();
